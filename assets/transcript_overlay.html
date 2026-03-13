@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>DebateWatcher – Live Transcript Overlay</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: transparent;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    overflow: hidden;
+  }
+  #transcript-panel {
+    position: fixed;
+    bottom: 40px;
+    left: 40px;
+    right: 40px;
+    background: rgba(10, 10, 20, 0.85);
+    border-radius: 10px;
+    padding: 16px 20px;
+    color: #fff;
+    font-size: 20px;
+    line-height: 1.5;
+    max-height: 120px;
+    overflow: hidden;
+    border-top: 3px solid #3498db;
+  }
+  .speaker-label {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #3498db;
+    margin-bottom: 4px;
+  }
+  #transcript-text {
+    opacity: 0.95;
+  }
+  #transcript-text .partial {
+    opacity: 0.6;
+    font-style: italic;
+  }
+</style>
+</head>
+<body>
+<div id="transcript-panel">
+  <div class="speaker-label" id="speaker-label">LIVE TRANSCRIPT</div>
+  <div id="transcript-text">Connecting…</div>
+</div>
+<script>
+  const WS_PROTO = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const WS_URL = `${WS_PROTO}//${location.host}/ws`;
+  let ws;
+
+  function connect() {
+    ws = new WebSocket(WS_URL);
+    ws.onmessage = (e) => {
+      const data = JSON.parse(e.data);
+      if (data.type === 'ping') return;
+      if (data.type === 'transcript') updateTranscript(data);
+    };
+    ws.onclose = () => setTimeout(connect, 2000);
+  }
+
+  function updateTranscript(data) {
+    const el = document.getElementById('transcript-text');
+    const label = document.getElementById('speaker-label');
+    if (data.speaker_id) {
+      label.textContent = data.speaker_id;
+    }
+    if (data.is_partial) {
+      el.innerHTML = `<span class="partial">${escapeHtml(data.text)}</span>`;
+    } else {
+      el.textContent = data.text;
+    }
+  }
+
+  function escapeHtml(text) {
+    return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  connect();
+</script>
+</body>
+</html>

@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>DebateWatcher – Truth Meter Overlay</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: transparent;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    overflow: hidden;
+  }
+  #meter-container {
+    position: fixed;
+    top: 40px;
+    right: 40px;
+    width: 200px;
+    background: rgba(10, 10, 20, 0.88);
+    border-radius: 12px;
+    padding: 16px;
+    color: #fff;
+  }
+  .meter-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: rgba(255,255,255,0.6);
+    margin-bottom: 10px;
+    text-align: center;
+  }
+  .gauge-track {
+    height: 12px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 6px;
+  }
+  .gauge-fill {
+    height: 100%;
+    border-radius: 6px;
+    transition: width 0.8s ease, background 0.8s ease;
+  }
+  .gauge-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    opacity: 0.7;
+    margin-bottom: 12px;
+  }
+  #fallacy-count {
+    text-align: center;
+    font-size: 28px;
+    font-weight: 700;
+    color: #e74c3c;
+    line-height: 1;
+  }
+  #fallacy-label {
+    text-align: center;
+    font-size: 11px;
+    opacity: 0.6;
+    margin-top: 2px;
+  }
+</style>
+</head>
+<body>
+<div id="meter-container">
+  <div class="meter-title">Logic Gauge</div>
+  <div class="gauge-track">
+    <div class="gauge-fill" id="logic-fill" style="width:100%; background:#2ecc71"></div>
+  </div>
+  <div class="gauge-label">
+    <span>Sound Logic</span>
+    <span>Fallacious</span>
+  </div>
+  <div id="fallacy-count">0</div>
+  <div id="fallacy-label">fallacies detected</div>
+</div>
+<script>
+  const WS_PROTO = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const WS_URL = `${WS_PROTO}//${location.host}/ws`;
+  let totalFallacies = 0;
+  let ws;
+
+  function connect() {
+    ws = new WebSocket(WS_URL);
+    ws.onmessage = (e) => {
+      const data = JSON.parse(e.data);
+      if (data.type === 'ping') return;
+      if (data.alert_type === 'fallacy' || data.fallacy_type) {
+        totalFallacies++;
+        updateMeter(data.confidence || 0.8);
+      }
+    };
+    ws.onclose = () => setTimeout(connect, 2000);
+  }
+
+  function updateMeter(confidence) {
+    document.getElementById('fallacy-count').textContent = totalFallacies;
+    // Slide the meter toward "fallacious" side based on running confidence
+    const pct = Math.min(100, totalFallacies * 12);
+    const fill = document.getElementById('logic-fill');
+    fill.style.width = (100 - pct) + '%';
+    if (pct < 33) fill.style.background = '#2ecc71';
+    else if (pct < 66) fill.style.background = '#f39c12';
+    else fill.style.background = '#e74c3c';
+  }
+
+  connect();
+</script>
+</body>
+</html>

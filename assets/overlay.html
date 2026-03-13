@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>DebateWatcher – Fallacy Alert Overlay</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: transparent;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    overflow: hidden;
+  }
+  #alert-container {
+    position: fixed;
+    bottom: 80px;
+    left: 40px;
+    right: 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    pointer-events: none;
+  }
+  .alert-card {
+    background: rgba(15, 15, 30, 0.92);
+    border-left: 5px solid #e74c3c;
+    border-radius: 8px;
+    padding: 14px 18px;
+    color: #fff;
+    font-size: 18px;
+    line-height: 1.4;
+    animation: slideIn 0.35s ease-out, fadeOut 0.5s ease-in 4.5s forwards;
+    max-width: 700px;
+  }
+  .alert-card.contradiction {
+    border-left-color: #f39c12;
+  }
+  .alert-badge {
+    display: inline-block;
+    background: #e74c3c;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 2px 8px;
+    border-radius: 3px;
+    margin-bottom: 6px;
+  }
+  .alert-card.contradiction .alert-badge { background: #f39c12; }
+  .alert-fallacy-name {
+    font-size: 22px;
+    font-weight: 700;
+    color: #ff6b6b;
+    margin-bottom: 4px;
+  }
+  .alert-card.contradiction .alert-fallacy-name { color: #ffa94d; }
+  .alert-explanation { opacity: 0.9; font-size: 16px; }
+  .confidence-bar {
+    height: 3px;
+    background: rgba(255,255,255,0.15);
+    border-radius: 2px;
+    margin-top: 10px;
+    overflow: hidden;
+  }
+  .confidence-fill {
+    height: 100%;
+    background: #e74c3c;
+    transition: width 0.3s ease;
+  }
+  @keyframes slideIn {
+    from { transform: translateX(-30px); opacity: 0; }
+    to   { transform: translateX(0);     opacity: 1; }
+  }
+  @keyframes fadeOut {
+    from { opacity: 1; }
+    to   { opacity: 0; transform: translateY(10px); }
+  }
+</style>
+</head>
+<body>
+<div id="alert-container"></div>
+<script>
+  const WS_PROTO = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const WS_URL = `${WS_PROTO}//${location.host}/ws`;
+  let ws;
+
+  function connect() {
+    ws = new WebSocket(WS_URL);
+    ws.onmessage = (e) => {
+      const data = JSON.parse(e.data);
+      if (data.type === 'ping') return;
+      if (data.alert_type || data.fallacy_type) showAlert(data);
+    };
+    ws.onclose = () => setTimeout(connect, 2000);
+  }
+
+  function showAlert(data) {
+    const container = document.getElementById('alert-container');
+    const card = document.createElement('div');
+    const isFallacy = data.alert_type !== 'contradiction';
+    card.className = 'alert-card' + (isFallacy ? '' : ' contradiction');
+
+    const pct = Math.round((data.confidence || 0) * 100);
+    const badgeText = isFallacy ? '⚠ Logical Fallacy' : '⚡ Contradiction';
+    card.innerHTML = `
+      <span class="alert-badge">${badgeText}</span>
+      ${data.fallacy_type ? `<div class="alert-fallacy-name">${escapeHtml(data.fallacy_type)}</div>` : ''}
+      <div class="alert-explanation">${escapeHtml(data.explanation || '')}</div>
+      <div class="confidence-bar">
+        <div class="confidence-fill" style="width:${pct}%"></div>
+      </div>
+    `;
+    container.appendChild(card);
+    setTimeout(() => card.remove(), 5500);
+  }
+
+  function escapeHtml(text) {
+    return String(text)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+  }
+
+  connect();
+</script>
+</body>
+</html>
